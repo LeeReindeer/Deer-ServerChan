@@ -2,8 +2,16 @@ package xyz.leezoom.deerserverchan;
 
 import android.annotation.TargetApi;
 import android.app.AlertDialog;
+import android.app.usage.NetworkStatsManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkInfo;
 import android.os.*;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
@@ -28,6 +36,8 @@ import xyz.leezoom.deerserverchan.module.Message;
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
     private static MainActivity instance;
+
+    private NetworkInfo networkInfo;
 
     private EditText mTitle;
     private EditText mContent;
@@ -68,6 +78,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     public void sendMsg(Message message) {
+        //check key
+        if (KEY.isEmpty()) {
+            Toast.makeText(this, "Key is empty!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        ConnectivityManager cm =
+                (ConnectivityManager)this.getSystemService(Context.CONNECTIVITY_SERVICE);
+        networkInfo = cm.getActiveNetworkInfo();
+        if (networkInfo == null || !networkInfo.isConnectedOrConnecting()) {
+            Toast.makeText(this, "Check Network, failed to send", Toast.LENGTH_SHORT).show();
+            return;
+        }
         //set key
         ApiHelper.CHANAPI.setKey(KEY);
         chanApi = ApiHelper.CHANAPI.getChanApi();
@@ -123,10 +145,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             //title can't be empty
             if (title.isEmpty()) {
                 Toast.makeText(this, "Title is empty!", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (KEY.equals("")) {
-                Toast.makeText(this, "Key is empty!", Toast.LENGTH_SHORT).show();
                 return;
             }
             Message message = new Message();
