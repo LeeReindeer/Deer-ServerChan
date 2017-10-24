@@ -7,6 +7,8 @@
 
 package xyz.leezoom.deerserverchan.api;
 
+import android.util.Log;
+
 import okhttp3.OkHttpClient;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
@@ -20,7 +22,8 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public enum ApiHelper implements ApiProvider {
 
     CHANAPI {
-        String k = "";
+        private String k = "";
+        private ChanApi chanApi;
         @Override
         public ChanApi getChanApi() {
             Retrofit retrofit = new Retrofit.Builder()
@@ -29,7 +32,11 @@ public enum ApiHelper implements ApiProvider {
                     .addConverterFactory(GsonConverterFactory.create())
                     .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
                     .build();
-            return retrofit.create(ChanApi.class);
+            if (chanApi == null) {
+                chanApi = retrofit.create(ChanApi.class);
+                Log.d("Api: ", chanApi.toString());
+            }
+            return chanApi;
         }
 
         @Override

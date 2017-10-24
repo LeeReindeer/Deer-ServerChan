@@ -1,5 +1,6 @@
 package xyz.leezoom.deerserverchan;
 
+import android.annotation.TargetApi;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
@@ -12,9 +13,12 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import org.reactivestreams.Subscription;
+
 import io.reactivex.Observer;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
 import io.reactivex.schedulers.Schedulers;
 import xyz.leezoom.deerserverchan.api.ApiHelper;
 import xyz.leezoom.deerserverchan.api.ChanApi;
@@ -22,6 +26,8 @@ import xyz.leezoom.deerserverchan.module.*;
 import xyz.leezoom.deerserverchan.module.Message;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+
+    private static MainActivity instance;
 
     private EditText mTitle;
     private EditText mContent;
@@ -31,32 +37,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private SharedPreferences data;
     private String KEY = "";
     private ChanApi chanApi;
+    private SmsListener smsListener;
 
-    private Disposable d;
-    private Observer<Status> observer = new Observer<Status>() {
+    Consumer<Status> consumer = new Consumer<Status>() {
         @Override
-        public void onSubscribe(Disposable d) {
-            MainActivity.this.d = d;
-        }
-
-        @Override
-        public void onNext(Status value) {
-            if (value.getError().equals("0")) {
+        public void accept(Status status) throws Exception {
+            if (status.getError().equals("0")) {
                 Toast.makeText(MainActivity.this, "Succeed", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(MainActivity.this, "Failed", Toast.LENGTH_SHORT).show();
             }
-        }
-
-        @Override
-        public void onError(Throwable e) {
-
-        }
-
-        @Override
-        public void onComplete() {
-
         }
     };
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+        instance = this;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,27 +63,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         KEY = getSharedPreferences("data", MODE_PRIVATE).getString("key", "");
     }
 
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (d != null && !d.isDisposed()) {
-            d.dispose();
-        }
+    public static MainActivity getInstance() {
+        return instance;
     }
 
-    private void sendMsg(xyz.leezoom.deerserverchan.module.Message message) {
-        if (KEY.equals("")) {
-            Toast.makeText(this, "Key is empty!", Toast.LENGTH_SHORT).show();
-            return;
-        }
+    public void sendMsg(Message message) {
         //set key
         ApiHelper.CHANAPI.setKey(KEY);
         chanApi = ApiHelper.CHANAPI.getChanApi();
         chanApi.sendToChan(message.getTitle(), message.getContent())
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(observer);
+                .subscribe(consumer);
     }
 
     private void initView() {
@@ -116,6 +105,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             editor.putString("key", key);
                             editor.apply();
                             Log.d("Main", KEY);
+                            System.out.println(KEY);
                         }
                     }
                 })
@@ -132,6 +122,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             String content = mContent.getText().toString();
             //title can't be empty
             if (title.isEmpty()) {
+                Toast.makeText(this, "Title is empty!", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (KEY.equals("")) {
+                Toast.makeText(this, "Key is empty!", Toast.LENGTH_SHORT).show();
                 return;
             }
             Message message = new Message();
@@ -143,4 +138,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             buildSCKEYDialog().show();
         }
     }
+
+
 }

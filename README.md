@@ -6,7 +6,7 @@
 
 ## To-do
 
-- [ ] Redirect phone's SMS and phone call.
+- [x] Redirect phone's SMS and phone call.
 
 - [ ] Redirect App's notification.
 
