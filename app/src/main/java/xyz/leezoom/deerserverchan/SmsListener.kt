@@ -40,7 +40,7 @@ class SmsListener : BroadcastReceiver() {
                         message.title = address
                         message.content = body
                         //send message to server
-                        MainActivity.instance?.sendMsg(message)
+                        MainActivity.instance?.sendMessage(message)
                     }
                 } catch (e: Exception) {
                     Log.d("Exception: ", e.message)

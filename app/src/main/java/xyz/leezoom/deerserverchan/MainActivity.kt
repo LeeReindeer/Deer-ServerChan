@@ -1,10 +1,10 @@
 package xyz.leezoom.deerserverchan
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
 import android.content.DialogInterface
 import android.content.SharedPreferences
-import android.net.ConnectivityManager
 import android.net.NetworkInfo
 import android.os.Bundle
 import android.support.design.widget.FloatingActionButton
@@ -14,14 +14,10 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
-
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.functions.Consumer
-import io.reactivex.schedulers.Schedulers
-import xyz.leezoom.deerserverchan.api.ApiHelper
-import xyz.leezoom.deerserverchan.api.ChanApi
 import xyz.leezoom.deerserverchan.module.Message
-import xyz.leezoom.deerserverchan.module.Status
+import xyz.leezoom.java.util.http.HttpConsumer
+import xyz.leezoom.java.util.http.HttpObservable
+import xyz.leezoom.java.util.http.Scheduler
 
 class MainActivity : AppCompatActivity(), View.OnClickListener {
 
@@ -34,15 +30,25 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private var actionButton: FloatingActionButton? = null
     private var data: SharedPreferences? = null
     private var KEY = ""
-    private var chanApi: ChanApi? = null
 
-    internal var consumer: Consumer<Status> = Consumer { status ->
-        if (status.error == "0") {
-            Toast.makeText(this, "Succeed", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "Failed", Toast.LENGTH_SHORT).show()
+    private var httpConsumer: HttpConsumer = object : HttpConsumer {
+        @Throws(Exception::class)
+        override fun succeed(s: String) {
+            runOnUiThread {
+                Toast.makeText(applicationContext, "Succeed", Toast.LENGTH_SHORT).show()
+                android.util.Log.d("success: ", s)
+            }
+        }
+
+        @Throws(Exception::class)
+        override fun failed(s: String) {
+            runOnUiThread {
+                Toast.makeText(applicationContext, "Failed", Toast.LENGTH_SHORT).show()
+                android.util.Log.d("failed: ", s)
+            }
         }
     }
+
 
     override fun onStart() {
         super.onStart()
@@ -55,25 +61,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         KEY = getSharedPreferences("data", Context.MODE_PRIVATE).getString("key", "")
     }
 
-    fun sendMsg(message: Message) {
-        //check key
-        if (KEY == "") {
-            Toast.makeText(this, "Key is empty!", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val cm = this.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        networkInfo = cm.activeNetworkInfo
-        if (networkInfo == null || !networkInfo!!.isConnectedOrConnecting) {
-            Toast.makeText(this, "Check Network, failed to send", Toast.LENGTH_SHORT).show()
-            return
-        }
-        //set key
-        ApiHelper.CHANAPI.setKey(KEY)
-        chanApi = ApiHelper.CHANAPI.getChanAPi()
-        chanApi!!.sendToChan(message.title, message.content)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(consumer)
+    fun sendMessage(message: Message) {
+        val observer = HttpObservable()
+        observer.get("https://sc.ftqq.com/$KEY.send?text=${message.title}&desp=${message.content}")
+                .setConnectTimeout(10000)
+                .setReadTimeout(10000)
+                .observeOn(Scheduler.Main_Thread)
+                .subscribe(httpConsumer)
+                .execute()
     }
 
     private fun initView() {
@@ -87,8 +82,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     }
 
     private fun buildSCKEYDialog(): AlertDialog {
-        val builder = AlertDialog.Builder(this@MainActivity)
-        mKey = EditText(this@MainActivity)
+        val builder = AlertDialog.Builder(this)
+        mKey = EditText(this)
         val dialog = builder
                 .setTitle("SCKEY")
                 .setView(mKey)
@@ -118,13 +113,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             val content = mContent!!.text.toString()
             //title can't be empty
             if (title == "") {
-                Toast.makeText(this, "Title is empty!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(applicationContext, "Title is empty!", Toast.LENGTH_SHORT).show()
                 return
             }
             val message = Message()
             message.title = title
             message.content = content
-            sendMsg(message)
+            //sendMsg(message)
+            sendMessage(message)
         } else if (v.id == R.id.float_button) {
             //enter SCKEY
             buildSCKEYDialog().show()
@@ -132,10 +128,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     }
 
     companion object {
-
+        @SuppressLint("StaticFieldLeak")
         var instance: MainActivity? = null
             private set
     }
-
 
 }
